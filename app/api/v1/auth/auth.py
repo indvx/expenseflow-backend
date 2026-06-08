@@ -8,7 +8,7 @@ from app.schemas.auth.request import (
 from fastapi import status
 from app.db.dependencies import get_db
 from app.services.auth.auth_service import AuthService
-from app.core.security import *
+from app.core.security.auth import *
 import typing as t
 
 router = APIRouter(
@@ -35,6 +35,7 @@ def login(user: LoginUserRequest, db: Session = Depends(get_db)):
 
 @router.post("/refresh")
 def refresh(token: RefreshTokenRequest, db: Session = Depends(get_db)):
+    print(token.refresh_token)
     auth_service = AuthService(db)
     return auth_service.refresh_token(token.refresh_token)
 
