@@ -94,6 +94,9 @@ class AuthService:
         refresh_token = refresh_token_crud.get_token_by_jti_or_user_id(
             self.db, user_id=user_id, revoked=False
         )
+        if not refresh_token:
+            raise InvalidTokenException("You are already logged out")
+
         refresh_token.revoked = True
         self.db.commit()
         self.db.refresh(refresh_token)
