@@ -24,3 +24,17 @@ class RegisterUserRequest(BaseModel):
         if "password" in info.data and v != info.data["password"]:
             raise ValueError("Passwords do not match")
         return v
+
+
+class LoginUserRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class RefreshTokenRequest(BaseModel):
+    refresh_token: str
+
+    @field_validator("refresh_token")
+    def check_refresh_token(cls, v):
+        if v and v.strip() == "string":
+            raise ValueError("Please provide the valid refresh token value.")
