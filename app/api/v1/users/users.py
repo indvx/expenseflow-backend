@@ -42,7 +42,7 @@ def update_user(
     return user
 
 
-@router.delete("/{id:int}")
+@router.delete("/{id:int}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_user(
     id: int, db: Session = Depends(get_db), d: t.Any = Depends(JWTBearer())
 ):
