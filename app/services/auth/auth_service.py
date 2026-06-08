@@ -11,7 +11,7 @@ import jwt
 import uuid
 import os
 from dotenv import load_dotenv
-from fastapi import HTTPException
+from app.core.exceptions.exceptions import *
 
 load_dotenv()
 
@@ -26,11 +26,11 @@ class AuthService:
 
         existing_user = user_crud.get_user(self.db, email=user.email)
         if existing_user:
-            raise ValueError("User already exists")
+            raise AlreadyExistsException(field="email")
 
         existing_user = user_crud.get_user(self.db, username=user.username)
         if existing_user:
-            raise ValueError("User already exists")
+            raise AlreadyExistsException(field="username")
 
         user.password = self.common_service.get_password_hash(user.password)
 
@@ -41,16 +41,16 @@ class AuthService:
     def login(self, payload: LoginUserRequest):
         user = user_crud.get_user(self.db, email=payload.email)
         if not user:
-            raise HTTPException(status_code=401, detail=("Invalid credentials"))
+            raise InvalidCredentialsException
 
         valid_password = self.common_service.verify_password(
             payload.password, user.hashed_password
         )
         if not valid_password:
-            raise HTTPException(status_code=401, detail=("Invalid password"))
+            raise InvalidCredentialsException
 
         if not user.is_active:
-            raise HTTPException(status_code=403, detail=("Your account is inactive"))
+            raise ForbiddenException
 
         access_token = self.common_service.create_jwt_token(user.id, type="access")
         refresh_data = self.common_service.create_jwt_token(user.id, type="refresh")
@@ -72,18 +72,18 @@ class AuthService:
     def refresh_token(self, refresh_token: str):
         payload = self.common_service.decode_token(refresh_token)
         if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail=("Invalid token type"))
+            raise InvalidTokenException
 
         jti = payload.get("jti")
         ref_token = refresh_token_crud.get_token_by_jti_or_user_id(self.db, jti=jti)
         if not ref_token:
-            raise HTTPException(status_code=401, detail=("Token not found"))
+            raise InvalidTokenException
 
         if ref_token.revoked:
-            raise HTTPException(status_code=401, detail=("Token is revoked"))
+            raise ForbiddenException("Token is revoked")
 
         if refresh_token_crud.is_refresh_token_expired(ref_token):
-            raise HTTPException(status_code=401, detail=("Token is expired"))
+            raise InvalidTokenException("Token is expired")
 
         access_token = self.common_service.create_jwt_token(
             ref_token.user_id, type="access"

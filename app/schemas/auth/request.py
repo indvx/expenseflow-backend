@@ -38,3 +38,4 @@ class RefreshTokenRequest(BaseModel):
     def check_refresh_token(cls, v):
         if v and v.strip() == "string":
             raise ValueError("Please provide the valid refresh token value.")
+        return v

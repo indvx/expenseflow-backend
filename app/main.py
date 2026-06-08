@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from app.api.v1.routers import router as api_router
+from app.core.exceptions.exceptions import AppException
+from app.core.exceptions.exception_handlers import app_exception_handler
 
 app = FastAPI(
     title="ExpenseFlow API",
@@ -8,6 +10,11 @@ app = FastAPI(
     swagger_ui_parameters={"defaultModelsExpandDepth": -1},
 )
 
+
+app.add_exception_handler(
+    AppException,
+    app_exception_handler,
+)
 app.include_router(api_router)
 
 
