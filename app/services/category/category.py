@@ -6,6 +6,7 @@ from app.sql.cruds import category as category_crud
 from app.core.exceptions.exceptions import NotFoundException, ForbiddenException
 import typing as t
 from app.enums.role_enums import RoleEnum
+from datetime import datetime
 
 
 class CategoryService:
@@ -69,9 +70,13 @@ class CategoryService:
         end_date: t.Optional[str] = None,
         category_type: str = "all",
     ):
-        if user_id is None:
-            if RoleEnum.ADMIN not in self.logged_user.roles:
-                user_id = self.logged_user.id
+        if start_date:
+            if start_date != "":
+                start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            if end_date != "":
+                end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
         return category_crud.get_categories(
             self.db,
             filter=filter,
