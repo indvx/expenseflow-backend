@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from app.enums.category_enums import CategoryType
 from app.schemas.user.response import UserResponse
 import typing as t
 from app.schemas.common_response import MetaDataResponse
@@ -8,7 +7,6 @@ from app.schemas.common_response import MetaDataResponse
 class CategoryResponse(BaseModel):
     id: int
     name: str
-    type: CategoryType
     user: UserResponse
     created_at: t.Any
     updated_at: t.Any

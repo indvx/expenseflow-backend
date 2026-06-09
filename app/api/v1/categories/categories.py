@@ -7,7 +7,6 @@ from app.sql.models.user import User
 from app.schemas.category.request import CategoryCreateRequest, CategoryUpdateRequest
 from app.schemas.category.response import CategoryResponse, CategoriesResponse
 from app.services.category.category import CategoryService
-from app.enums.category_enums import CategoryFilterEnum
 
 router = APIRouter(
     prefix="/categories",
@@ -21,7 +20,6 @@ def get_categories(
     filter: t.Optional[str] = None,
     sort_by: t.Optional[str] = "id",
     order: t.Literal["asc", "desc"] = "desc",
-    type: CategoryFilterEnum = CategoryFilterEnum.ALL,
     page: t.Optional[int] = 1,
     limit: t.Optional[int] = 20,
     start_date: t.Optional[str] = None,
@@ -34,7 +32,6 @@ def get_categories(
         filter=filter,
         sort_by=sort_by,
         order=order,
-        category_type=type,
         page=page,
         limit=limit,
         start_date=start_date,

@@ -68,7 +68,6 @@ class CategoryService:
         order: str = "desc",
         start_date: t.Optional[str] = None,
         end_date: t.Optional[str] = None,
-        category_type: str = "all",
     ):
         if start_date:
             if start_date != "":
@@ -87,5 +86,4 @@ class CategoryService:
             order=order,
             start_date=start_date,
             end_date=end_date,
-            category_type=category_type,
         )
