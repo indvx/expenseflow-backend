@@ -5,6 +5,8 @@ from app.db.session import SQLALCHEMY_DATABASE_URL
 from app.sql.models.user import User
 from app.sql.models.refresh_token import RefreshToken
 from app.sql.models.category import Category
+from app.sql.models.transaction import Transaction
+
 from sqlalchemy import pool
 
 from alembic import context

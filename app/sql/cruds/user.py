@@ -17,7 +17,9 @@ def create_user(db: Session, user: dict):
     return user_data
 
 
-def get_user(db: Session, user_id: int = None, username: str = None, email: str = None):
+def get_user(
+    db: Session, user_id: int = None, username: str = None, email: str = None
+) -> User:
     query = db.query(User)
     if user_id:
         query = query.filter(User.id == user_id)
@@ -26,6 +28,13 @@ def get_user(db: Session, user_id: int = None, username: str = None, email: str 
     elif email:
         query = query.filter(User.email == email)
     return query.first()
+
+
+def check_user_exists(db: Session, user_id: int) -> bool:
+    user = get_user(db, user_id=user_id)
+    if user and bool(user.is_active):
+        return True
+    return False
 
 
 def update_user(db: Session, user: User, user_data: dict):

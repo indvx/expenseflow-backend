@@ -54,7 +54,6 @@ def get_categories(
     order: str = "desc",
     start_date: str = None,
     end_date: str = None,
-    category_type: str = "all",
 ):
     query = db.query(Category)
 
@@ -64,9 +63,6 @@ def get_categories(
 
     if user_id and user_id != 0:
         query = query.filter(Category.user_id == user_id)
-
-    if category_type and category_type != "all":
-        query = query.filter(Category.type == category_type.upper())
 
     if order != "" and sort_by != "":
         if order == "desc":

@@ -32,9 +32,6 @@ class JWTBearer(HTTPBearer):
 
 
 def get_current_user(token: str = Depends(JWTBearer())):
-
-    print("token", token)
-
     payload = decode_token(token)
     user_id = payload.get("sub")
 
