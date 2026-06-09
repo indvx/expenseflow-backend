@@ -2,6 +2,7 @@ from app.sql.models.user import User
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, asc
 import typing as t
+from datetime import datetime, timedelta, UTC
 
 
 def create_user(db: Session, user: dict):
@@ -81,11 +82,15 @@ def get_users(
         elif order == "asc":
             query = query.order_by(asc(getattr(User, sort_by)))
 
-    if start_date and start_date != "":
-        query = query.filter(User.created_at >= start_date.strip())
+    if start_date is not None:
+        if end_date is None:
+            end_date = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            end_date = end_date + timedelta(days=1) - timedelta(seconds=1)
 
-    if end_date and end_date != "":
-        query = query.filter(User.created_at <= end_date.strip())
+        query = query.filter(User.created_at >= start_date).filter(
+            User.created_at <= end_date
+        )
 
     total_items = query.count()
 

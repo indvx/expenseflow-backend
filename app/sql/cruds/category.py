@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 from app.sql.models.category import Category
 from app.schemas.category.request import CategoryCreateRequest
 from sqlalchemy import desc, asc
+from datetime import datetime, timedelta, date, UTC
 
 
 def create_category(db: Session, category_data: dict):
@@ -65,7 +66,7 @@ def get_categories(
         query = query.filter(Category.user_id == user_id)
 
     if category_type and category_type != "all":
-        query = query.filter(Category.type == category_type)
+        query = query.filter(Category.type == category_type.upper())
 
     if order != "" and sort_by != "":
         if order == "desc":
@@ -73,11 +74,15 @@ def get_categories(
         elif order == "asc":
             query = query.order_by(asc(getattr(Category, sort_by)))
 
-    if start_date and start_date != "":
-        query = query.filter(Category.created_at >= start_date.strip())
+    if start_date is not None:
+        if end_date is None:
+            end_date = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")
+        else:
+            end_date = end_date + timedelta(days=1) - timedelta(seconds=1)
 
-    if end_date and end_date != "":
-        query = query.filter(Category.created_at <= end_date.strip())
+        query = query.filter(Category.created_at >= start_date).filter(
+            Category.created_at <= end_date
+        )
 
     total_items = query.count()
 

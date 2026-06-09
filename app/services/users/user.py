@@ -3,6 +3,7 @@ from app.sql.cruds import user as user_crud
 from app.services.comman import CommonService
 from app.schemas.user.request import UserUpdateRequest, AddNewUserRequest
 from app.core.exceptions.exceptions import NotFoundException, AlreadyExistsException
+from datetime import datetime
 
 
 class UserService:
@@ -53,6 +54,13 @@ class UserService:
         start_date: str = None,
         end_date: str = None,
     ):
+        if start_date:
+            if start_date != "":
+                start_date = datetime.strptime(start_date, "%Y-%m-%d")
+        if end_date:
+            if end_date != "":
+                end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
         return user_crud.get_users(
             self.db,
             filter=filter,
