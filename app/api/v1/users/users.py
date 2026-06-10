@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, BackgroundTasks
 from sqlalchemy.orm import Session
 import typing as t
 from app.db.dependencies import get_db
@@ -7,10 +7,57 @@ from app.enums.role_enums import RoleFilterEnum
 from app.core.security.auth import *
 from app.schemas.user.response import *
 from app.schemas.user.request import *
+from fastapi.templating import Jinja2Templates
+from datetime import datetime, UTC
+from app.core.helper.mailer import Mailer
+
+mailer = Mailer()
+env = Jinja2Templates(directory="app/templates")
 
 router = APIRouter(
     prefix="/users", tags=["Users"], responses={404: {"description": "Not Found"}}
 )
+
+
+def send_mail(user: AddNewUserRequest, inviter: t.Any):
+    try:
+        template = env.get_template("emails/invite-user.html.twig")
+        html = template.render(
+            member_name=user.username,
+            invited_by=inviter.username,
+            project_name="ExpenseFlow",
+            invitation_url="http://localhost:8003/api/v1/auth/register",
+            current_year=datetime.now(UTC).year,
+        )
+        mailer._send_mail(
+            subject="Invitation to Join ExpenseFlow",
+            to_email=user.email,
+            body=html,
+        )
+        return True
+    except Exception as e:
+        print(e)
+        return False
+
+
+def send_password_reset_mail(user: t.Any, temp_password: str):
+    try:
+        template = env.get_template("emails/password-reset.html.twig")
+        html = template.render(
+            user_name=user.username,
+            temp_password=temp_password,
+            login_url="http://localhost:8003/api/v1/auth/login",
+            current_year=datetime.now(UTC).year,
+        )
+        mailer._send_mail(
+            subject="ExpenseFlow - Password Reset",
+            to_email=user.email,
+            body=html,
+        )
+        return True
+    except Exception as e:
+        print(e)
+        return False
 
 
 @router.get("/me", response_model=CurrentUserResponse)
@@ -25,9 +72,12 @@ def add_new_user(
     user_data: AddNewUserRequest,
     db: Session = Depends(get_db),
     d: t.Any = Depends(has_roles(["admin"])),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
 ):
     user_service = UserService(db)
-    return user_service.add_user(user_data)
+    user = user_service.add_user(user_data)
+    background_tasks.add_task(send_mail, user, d)
+    return user
 
 
 @router.put("/{id:int}", response_model=UserResponse)
@@ -47,6 +97,21 @@ def delete_user(
     id: int, db: Session = Depends(get_db), d: t.Any = Depends(JWTBearer())
 ):
     return {"message": f"Delete user {id}"}
+
+
+@router.post("/reset-password-request")
+def reset_password_request(
+    data: ResetPasswordRequest,
+    db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+):
+    user_service = UserService(db)
+    user = user_service.password_reset_request(data.email)
+    background_tasks.add_task(
+        send_password_reset_mail, user["user"], user.get("temp_password")
+    )
+
+    return {"message": f"Reset password request sent for user {data.email}"}
 
 
 @router.get("/{id:int}", response_model=CurrentUserResponse)
