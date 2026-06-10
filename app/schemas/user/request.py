@@ -11,3 +11,6 @@ class UserUpdateRequest(BaseModel):
 
 class AddNewUserRequest(UserUpdateRequest):
     roles: t.List[RoleEnum] = [RoleEnum.GUEST]
+
+class ResetPasswordRequest(BaseModel):
+    email: EmailStr

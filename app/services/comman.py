@@ -5,6 +5,8 @@ import os
 from datetime import datetime, timedelta, timezone
 import uuid
 from fastapi import HTTPException
+import secrets
+import string
 
 load_dotenv()
 
@@ -60,3 +62,8 @@ class CommonService:
 
         except jwt.InvalidTokenError:
             raise HTTPException(status_code=401, detail=("Invalid token"))
+
+    def generate_temp_password(self):
+        chars = string.ascii_letters + string.digits + "!@#$%^&*()_+-=[]{}|;:,.<>?"
+        password = "".join(secrets.choice(chars) for _ in range(8))
+        return password

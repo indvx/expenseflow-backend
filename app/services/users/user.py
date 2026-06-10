@@ -17,6 +17,15 @@ class UserService:
             raise NotFoundException(message="Provided user detail not found")
         return user
 
+    def password_reset_request(self, email: str):
+        user = user_crud.get_user(self.db, email=email)
+        if not user:
+            raise NotFoundException(message="Provided user detail not found")
+        password = self.common_service.generate_temp_password()
+        hashed_password = self.common_service.get_password_hash(password)
+        user = user_crud.update_user(self.db, user, {"password": hashed_password})
+        return {"temp_password": password, "user": user}
+
     def update_user(self, user_id, user_data: UserUpdateRequest):
         user = self.get_user(user_id)
         data = user_data.model_dump(exclude_unset=True)
