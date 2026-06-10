@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from app.sql.models.transaction import Transaction
 from app.sql.models.user import User
 from app.sql.models.category import Category
-from sqlalchemy import or_, desc, asc, String, extract, func
+from sqlalchemy import or_, desc, asc, String, extract, func, case
 from datetime import date
 from app.enums.transaction_enums import TransactionEnum
 
@@ -129,3 +129,81 @@ def get_transactions(
         "transactions": transactions,
     }
 
+
+def get_report(
+    db: Session,
+    report_type: str = "monthly",
+    year: int = None,
+    month: int = None,
+    day: int = None,
+    user_id: int = None,
+):
+    query = db.query(
+        User,
+        extract("year", Transaction.transaction_date).label("year"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (Transaction.type == TransactionEnum.INCOME, Transaction.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("total_income"),
+        func.coalesce(
+            func.sum(
+                case(
+                    (Transaction.type == TransactionEnum.EXPENSE, Transaction.amount),
+                    else_=0,
+                )
+            ),
+            0,
+        ).label("total_expense"),
+    ).join(Transaction, Transaction.user_id == User.id)
+
+    if report_type in ["monthly", "daily"]:
+        query = query.add_columns(
+            extract("month", Transaction.transaction_date).label("month")
+        )
+
+    if report_type == "daily":
+        query = query.add_columns(
+            extract("day", Transaction.transaction_date).label("day")
+        )
+    if user_id and user_id != 0:
+        query = query.filter(Transaction.user_id == user_id)
+
+    if year is not None and year != 0:
+        query = query.filter(
+            extract("year", Transaction.transaction_date) == year,
+        )
+    if month is not None and month != 0:
+        query = query.filter(
+            extract("month", Transaction.transaction_date) == month,
+        )
+
+    if day is not None and day != 0:
+        query = query.filter(
+            extract("day", Transaction.transaction_date) == day,
+        )
+
+    group_by_columns = [User.id, extract("year", Transaction.transaction_date)]
+    if report_type in ["monthly", "daily"]:
+        group_by_columns.append(extract("month", Transaction.transaction_date))
+
+    if report_type == "daily":
+        group_by_columns.append(extract("day", Transaction.transaction_date))
+
+    results = query.group_by(*group_by_columns).all()
+    return [
+        {
+            "year": row.year,
+            "month": row.month if hasattr(row, "month") else 0,
+            "day": row.day if hasattr(row, "day") else 0,
+            "total_income": row.total_income,
+            "total_expense": row.total_expense,
+            "net_savings": row.total_income - row.total_expense,
+            "user": row.User,
+        }
+        for row in results
+    ]
