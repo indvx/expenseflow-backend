@@ -111,7 +111,9 @@ def reset_password_request(
         send_password_reset_mail, user["user"], user.get("temp_password")
     )
 
-    return {"message": f"Reset password request sent for user {data.email}"}
+    return {
+        "message": "Password reset successful. Please check your email for your temporary password."
+    }
 
 
 @router.get("/{id:int}", response_model=CurrentUserResponse)
