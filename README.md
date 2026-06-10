@@ -6,7 +6,7 @@
 
 ## ✨ Overview
 
-ExpenseFlow Backend is an enterprise-grade expense management API designed for businesses and individuals to efficiently track, categorize, and analyze their financial transactions. Built with modern technologies and best practices, it provides a robust foundation for expense management applications.
+ExpenseFlow Backend is an enterprise-grade expense management API designed for businesses and individuals to efficiently track, categorize, and analyze their financial transactions. Built with modern FastAPI framework and PostgreSQL database.
 
 ### Key Benefits
 ✅ **Real-time Financial Insights** - Comprehensive reporting and analytics  
@@ -27,6 +27,7 @@ ExpenseFlow Backend is an enterprise-grade expense management API designed for b
 | **Migrations** | Alembic 1.18.4 |
 | **Security** | Argon2 Password Hashing |
 | **Containerization** | Docker & Docker Compose |
+| **ASGI Server** | Uvicorn |
 
 ---
 
@@ -36,6 +37,7 @@ ExpenseFlow Backend is an enterprise-grade expense management API designed for b
 - Python 3.8+
 - PostgreSQL 12+
 - Docker & Docker Compose (optional)
+- pip (Python package manager)
 
 ### Installation
 
@@ -47,15 +49,32 @@ cd expenseflow-backend
 
 **2. Setup Environment**
 ```bash
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# Activate virtual environment
+# On Linux/macOS:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+
+# Install dependencies
 pip install -r requirements.txt
 ```
 
 **3. Configure Database**
 ```bash
-cp .env copy .env
+# Copy environment template
+cp ".env copy" .env
+
 # Edit .env with your PostgreSQL credentials
+# Example:
+# DB_HOST=localhost
+# DB_PORT=5432
+# DB_USER=postgres
+# DB_PASSWORD=your_password
+# DB_NAME=expenseflow
 ```
 
 **4. Initialize Database**
@@ -65,10 +84,20 @@ alembic upgrade head
 
 **5. Start Server**
 ```bash
-fastapi dev main.py
+# Option 1: Using uvicorn directly
+uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+
+# Option 2: Using the provided start script
+chmod +x start.sh
+./start.sh
+
+# Option 3: Using FastAPI dev command
+fastapi dev app/main.py
 ```
 
-Server runs at: `http://localhost:8000`
+Server runs at: `http://localhost:8003` (or `http://localhost:8000` if using fastapi dev)
+
+API Documentation available at: `http://localhost:8003/docs`
 
 ---
 
@@ -76,12 +105,14 @@ Server runs at: `http://localhost:8000`
 
 ### Base URL
 ```
-http://localhost:8000/api/v1
+http://localhost:8003/api/v1
 ```
 
 ### Interactive Documentation
-- **Swagger UI**: http://localhost:8000/docs
-- **ReDoc**: http://localhost:8000/redoc
+- **Swagger UI**: http://localhost:8003/docs
+- **ReDoc**: http://localhost:8003/redoc
+- **Root Endpoint**: http://localhost:8003/ (Welcome message)
+- **Health Check**: http://localhost:8003/health
 
 ### Core Modules
 
@@ -97,7 +128,7 @@ Secure user registration, login, and token management.
 
 **Example Request:**
 ```bash
-curl -X POST "http://localhost:8000/api/v1/auth/login" \
+curl -X POST "http://localhost:8003/api/v1/auth/login" \
   -H "Content-Type: application/json" \
   -d '{"email": "user@example.com", "password": "secure_password"}'
 ```
@@ -182,7 +213,7 @@ order        - asc or desc
 
 **Example Request:**
 ```bash
-curl -X GET "http://localhost:8000/api/v1/transactions?type=expense&min_amount=50&max_amount=500&start_date=2026-01-01" \
+curl -X GET "http://localhost:8003/api/v1/transactions?type=expense&min_amount=50&max_amount=500&start_date=2026-01-01" \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
 
@@ -236,11 +267,17 @@ Monitor API availability and status.
 ```
 1. User Login
    ↓
-2. Receive: access_token (15min) + refresh_token (7 days)
+2. Receive: access_token + refresh_token
    ↓
 3. Use access_token in requests
    ↓
-4. Before expiry, use refresh_token to get new tokens
+4. Before expiry, use refresh_token to get new token
+```
+
+### Token Configuration (from .env)
+```
+ACCESS_TOKEN_EXPIRE_MINUTES = 15   # Default token lifetime
+REFRESH_TOKEN_EXPIRE_DAYS = 7      # Refresh token lifetime
 ```
 
 ### Authorization Header
@@ -255,6 +292,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 - ✅ Role-based access control
 - ✅ HTTPS ready
 - ✅ Database connection pooling
+- ✅ Exception handling with custom error responses
 
 ---
 
@@ -265,7 +303,16 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 # Build image
 docker build -t expenseflow-backend:latest .
 
-# Run with Docker Compose
+# Run container
+docker run -p 8003:8003 --env-file .env expenseflow-backend:latest
+
+# Stop container
+docker stop <container_id>
+```
+
+### Using Docker Compose (if docker-compose.yml exists)
+```bash
+# Start services
 docker-compose up -d
 
 # View logs
@@ -276,14 +323,26 @@ docker-compose down
 ```
 
 ### Environment Configuration
-Create `.env` file:
+Create `.env` file from template:
 ```env
-DATABASE_URL=postgresql://user:password@db:5432/expenseflow
-JWT_SECRET_KEY=your-super-secret-key-here
-JWT_ALGORITHM=HS256
+# Database Configuration
+DB_CONNECTION=postgresql
+DB_HOST=db
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_secure_password
+DB_NAME=expenseflow
+
+# JWT Authentication
+SECRET_KEY=your-super-secret-key-min-32-chars
+ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
+
+# Server Configuration
 DEBUG=False
+API_TITLE=ExpenseFlow API
+API_VERSION=1.0.0
 ```
 
 ---
@@ -292,17 +351,31 @@ DEBUG=False
 
 ### Schema Migrations
 ```bash
-# Create new migration
+# Create new migration (auto-generate from model changes)
 alembic revision --autogenerate -m "Add expense limits"
 
-# Apply migrations
+# Apply all pending migrations
 alembic upgrade head
+
+# Apply specific number of migrations
+alembic upgrade +2
 
 # Rollback one migration
 alembic downgrade -1
 
+# Rollback to specific revision
+alembic downgrade <revision_id>
+
 # View migration history
 alembic history
+
+# View current revision
+alembic current
+```
+
+### Database Connection URL Format
+```
+postgresql://user:password@host:port/database
 ```
 
 ---
@@ -317,6 +390,8 @@ alembic history
 | alembic | 1.18.4 | Database migrations |
 | pwdlib[argon2] | 0.3.0 | Password hashing |
 | pyjwt | 2.13.0 | JWT token handling |
+| uvicorn | Latest | ASGI server |
+| python-dotenv | Latest | Environment variables |
 
 ---
 
@@ -325,22 +400,37 @@ alembic history
 ```
 expenseflow-backend/
 ├── app/
-│   ├── models/              # Database ORM models
-│   ├── schemas/             # Pydantic validation schemas
-│   ├── routes/              # API endpoints
-│   ├── services/            # Business logic layer
-│   ├── dependencies/        # FastAPI dependencies
-│   └── config.py            # Configuration management
+│   ├── api/
+│   │   ├── v1/
+│   │   │   ├── routers/          # API endpoint handlers
+│   │   │   └── __init__.py
+│   │   └── __init__.py
+│   ├── core/
+│   │   ├── exceptions/           # Custom exception handlers
+│   │   │   ├── exceptions.py
+│   │   │   ├── exception_handlers.py
+│   │   │   └── __init__.py
+│   │   └── __init__.py
+│   ├── models/                   # SQLAlchemy ORM models
+│   ├── schemas/                  # Pydantic validation schemas
+│   ├── services/                 # Business logic layer
+│   ├── dependencies/             # FastAPI dependencies (DB, Auth, etc.)
+│   ├── config.py                 # Configuration management
+│   └── main.py                   # Application entry point (in app/ folder)
 ├── alembic/
-│   ├── versions/            # Migration scripts
-│   └── env.py               # Migration environment
-├── main.py                  # Application entry point
-├── requirements.txt         # Python dependencies
-├── alembic.ini             # Alembic settings
-├── Dockerfile              # Container image definition
-├── docker-compose.yml      # Multi-container setup
-├── .env                    # Environment variables
-└── README.md               # This file
+│   ├── versions/                 # Database migration scripts
+│   ├── env.py                    # Migration environment configuration
+│   └── script.py.mako            # Migration script template
+├── main.py                       # Application entry point (alternative location)
+├── start.sh                      # Startup script with migrations
+├── requirements.txt              # Python dependencies
+├── alembic.ini                   # Alembic configuration
+├── ".env copy"                   # Environment variables template
+├── .env                          # Environment variables (git-ignored)
+├── .gitignore                    # Git ignore rules
+├── Dockerfile                    # Container image definition
+├── docker-compose.yml            # Multi-container setup (if present)
+└── README.md                     # This file
 ```
 
 ---
@@ -348,7 +438,7 @@ expenseflow-backend/
 ## 🧪 Testing & Quality
 
 ```bash
-# Run tests
+# Run tests (if test suite exists)
 pytest tests/ -v
 
 # Coverage report
@@ -362,6 +452,9 @@ flake8 app/
 
 # Type checking
 mypy app/
+
+# Sort imports
+isort app/
 ```
 
 ---
@@ -402,7 +495,7 @@ mypy app/
 
 ### JavaScript/Node.js
 ```javascript
-const response = await fetch('http://localhost:8000/api/v1/transactions', {
+const response = await fetch('http://localhost:8003/api/v1/transactions', {
   method: 'GET',
   headers: {
     'Authorization': `Bearer ${accessToken}`,
@@ -418,7 +511,7 @@ import requests
 
 headers = {'Authorization': f'Bearer {access_token}'}
 response = requests.get(
-  'http://localhost:8000/api/v1/transactions',
+  'http://localhost:8003/api/v1/transactions',
   headers=headers
 )
 transactions = response.json()
@@ -427,7 +520,7 @@ transactions = response.json()
 ### cURL
 ```bash
 curl -H "Authorization: Bearer YOUR_TOKEN" \
-     http://localhost:8000/api/v1/transactions
+     http://localhost:8003/api/v1/transactions
 ```
 
 ---
@@ -437,11 +530,16 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 ### Environment Variables
 ```env
 # Database
-DATABASE_URL=postgresql://user:password@localhost:5432/expenseflow
+DB_CONNECTION=postgresql
+DB_HOST=localhost
+DB_PORT=5432
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_NAME=expenseflow
 
 # JWT
-JWT_SECRET_KEY=your-secret-key-min-32-chars
-JWT_ALGORITHM=HS256
+SECRET_KEY=your-secret-key-min-32-chars
+ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=15
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
@@ -450,9 +548,14 @@ DEBUG=False
 API_TITLE=ExpenseFlow API
 API_VERSION=1.0.0
 
-# CORS
+# CORS (if configured)
 ALLOWED_ORIGINS=http://localhost:3000,https://app.expenseflow.com
 ```
+
+### Server Port Configuration
+- **Default Port**: 8003 (see `start.sh`)
+- **FastAPI dev**: 8000 (when using `fastapi dev`)
+- **Custom**: Pass `--port` flag to uvicorn
 
 ---
 
@@ -465,6 +568,7 @@ ALLOWED_ORIGINS=http://localhost:3000,https://app.expenseflow.com
 - ✅ Redis caching ready
 - ✅ Load balancer compatible
 - ✅ Horizontal scalability with Docker
+- ✅ Exception handling for graceful error responses
 
 ---
 
@@ -476,21 +580,41 @@ ALLOWED_ORIGINS=http://localhost:3000,https://app.expenseflow.com
 psql -U postgres
 
 # Verify DATABASE_URL in .env
-echo $DATABASE_URL
+echo $DB_HOST
+echo $DB_PORT
+echo $DB_USER
 ```
 
 ### JWT Token Invalid
 ```bash
-# Ensure JWT_SECRET_KEY is set in .env
+# Ensure SECRET_KEY is set in .env
 # Tokens expire after ACCESS_TOKEN_EXPIRE_MINUTES
 # Use /auth/refresh endpoint to get new token
 ```
 
 ### Port Already in Use
 ```bash
-# Change port or kill process
-lsof -i :8000
+# Check what's using port 8003
+lsof -i :8003
+
+# Kill process using the port
 kill -9 <PID>
+
+# Or run on different port
+uvicorn app.main:app --port 8004
+```
+
+### Migration Issues
+```bash
+# Check current migration status
+alembic current
+
+# View all migrations
+alembic history
+
+# If migrations are out of sync, downgrade and upgrade
+alembic downgrade base  # Revert all
+alembic upgrade head    # Reapply all
 ```
 
 ---
@@ -510,6 +634,7 @@ We welcome contributions! Please follow these steps:
 - Add tests for new features
 - Update documentation
 - Use meaningful commit messages
+- Test your changes before submitting PR
 
 ---
 
@@ -532,7 +657,9 @@ MIT License © 2026 ExpenseFlow. See [LICENSE](LICENSE) file for details.
 
 ## 🙌 Acknowledgments
 
-Built with FastAPI, SQLAlchemy, and PostgreSQL - the modern Python stack for building scalable APIs.
+Built with FastAPI, SQLAlchemy, PostgreSQL, and Uvicorn - the modern Python stack for building scalable APIs.
+
+Special thanks to the open-source community for the excellent tools and libraries.
 
 ---
 
