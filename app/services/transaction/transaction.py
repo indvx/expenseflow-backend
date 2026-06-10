@@ -147,3 +147,28 @@ class TransactionService:
             min_amount=min_amount,
             max_amount=max_amount,
         )
+
+    def get_report(
+        self,
+        report_type: str = "monthly",
+        year: int = None,
+        month: int = None,
+        day: int = None,
+        user_id: int = None,
+    ):
+        if RoleEnum.ADMIN not in self.logged_user.roles:
+            user_id = self.logged_user.id
+
+        if user_id == 0:
+            user_id = None
+
+        report = transaction_crud.get_report(
+            db=self.db,
+            report_type=report_type,
+            year=year,
+            month=month,
+            day=day,
+            user_id=user_id,
+        )
+
+        return report
