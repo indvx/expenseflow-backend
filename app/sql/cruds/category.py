@@ -6,7 +6,6 @@ from datetime import datetime, timedelta, date, UTC
 
 
 def create_category(db: Session, category_data: dict):
-    print("category crud", category_data)
     category = Category()
     category.name = category_data.get("name")
     category.user_id = category_data.get("user_id")

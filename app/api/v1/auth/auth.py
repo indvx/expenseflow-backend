@@ -42,7 +42,6 @@ def login(user: LoginUserRequest, db: Session = Depends(get_db)):
 
 @router.post("/refresh", response_model=RefreshTokenResponse)
 def refresh(token: RefreshTokenRequest, db: Session = Depends(get_db)):
-    print(token.refresh_token)
     auth_service = AuthService(db)
     return auth_service.refresh_token(token.refresh_token)
 
