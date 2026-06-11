@@ -1,19 +1,19 @@
-# Build stage
 FROM python:3.11-slim as builder
 
 WORKDIR /app
 
-# Install system dependencies required for building
+# Install system dependencies required for building python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install packages in a virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Runtime stage
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -23,29 +23,29 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python packages from builder
-COPY --from=builder /root/.local /root/.local
+# Copy virtual environment from builder stage
+COPY --from=builder /opt/venv /opt/venv
 
 # Set environment variables
-ENV PATH=/root/.local/bin:$PATH \
+ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    UVICORN_PORT=8003
 
-# Copy application code
+# Copy project files
 COPY . .
 
-# Create non-root user for security
-RUN useradd -m -u 1000 appuser && \
+# Setup execute permissions for entrypoint and non-root app user
+RUN chmod +x /app/entrypoint.sh && \
+    useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
 USER appuser
 
-# Expose port
-EXPOSE 8003
-
-# Health check
+# Healthcheck using Python's standard urllib module
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import requests; requests.get('http://localhost:8003/health', timeout=5)" || exit 1
+    CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"UVICORN_PORT\", \"8003\")}/')" || exit 1
 
-# Run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003"]
+# Define entrypoint to run migrations automatically, and start server
+ENTRYPOINT ["/app/entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
