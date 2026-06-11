@@ -42,10 +42,6 @@ RUN chmod +x /app/entrypoint.sh && \
 
 USER appuser
 
-# Healthcheck using Python's standard urllib module
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request, os; urllib.request.urlopen(f'http://localhost:{os.getenv(\"UVICORN_PORT\", \"8003\")}/')" || exit 1
-
 # Define entrypoint to run migrations automatically, and start server
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
