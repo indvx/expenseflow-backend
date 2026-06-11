@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="120"
+     height="120"
+     viewBox="0 0 120 120">
+
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#00C853"/>
+      <stop offset="100%" stop-color="#1E88E5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Bar chart -->
+  <rect x="30" y="65" width="18" height="35" rx="3" fill="#00C853"/>
+  <rect x="55" y="50" width="18" height="50" rx="3" fill="#43A047"/>
+  <rect x="80" y="35" width="18" height="65" rx="3" fill="#1E88E5"/>
+
+  <!-- Upward arrow -->
+  <path d="M25 105 Q70 95 105 45"
+        fill="none"
+        stroke="url(#grad)"
+        stroke-width="8"/>
+
+  <!-- Arrow head -->
+  <polygon points="100,48 115,40 108,58"
+           fill="#1E88E5"/>
+
+  <!-- Dollar sign -->
+  <text x="58"
+        y="85"
+        font-family="Arial"
+        font-size="32"
+        font-weight="bold"
+        text-anchor="middle"
+        fill="white">$</text>
+</svg>
