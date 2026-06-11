@@ -1,12 +1,13 @@
 #!/bin/sh
-# Exit immediately if a command exits with a non-zero status
-set -e
+set -ex
 
-# Only run migrations when starting the FastAPI server
+echo "Arguments: $@"
+
 if [ "$1" = "uvicorn" ]; then
   echo "Running database migrations..."
   alembic upgrade head
+  echo "Migration finished"
 fi
 
-# Execute the CMD instruction
+echo "Starting application"
 exec "$@"
