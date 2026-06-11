@@ -6,6 +6,9 @@ DB_USER=''
 DB_PASSWORD=''
 DB_NAME=''
 
+# Application Settings
+APP_DOMAIN=''
+
 #Auth Secrets
 SECRET_KEY=
 ALGORITHM=

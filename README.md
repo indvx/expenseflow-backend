@@ -89,7 +89,7 @@ expenseflow-backend/
 
 ### Option 1: Docker Compose (Recommended) ⭐
 
-This is the quickest and most reliable way to get started.
+This is the quickest and most reliable way to run the API container. Note that the `docker-compose.yml` is configured to run the `api` service and connect to a PostgreSQL database on the host machine or external server via `host.docker.internal` (or custom host).
 
 **1. Clone Repository**
 ```bash
@@ -103,35 +103,41 @@ cp ".env copy" .env
 ```
 
 **3. Edit `.env` with Your Configuration**
+Ensure that `DB_HOST` is set correctly (e.g., `host.docker.internal` to connect to PostgreSQL running on your host machine) and set other database details.
 ```env
 # Database Configuration
-DB_CONNECTION=postgresql
-DB_HOST=db
+DB_CONNECTION=postgresql+psycopg2
+DB_HOST=host.docker.internal
 DB_PORT=5432
 DB_USER=postgres
 DB_PASSWORD=your_secure_password
-DB_NAME=expenseflow
+DB_NAME=expenseflow-db
 
 # JWT Configuration
 SECRET_KEY=your-super-secret-key-min-32-chars-change-this
 ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=15
+ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 
 # Server Configuration
 DEBUG=False
+PORT=8001
 ```
 
 **4. Start Services**
+You can use the helper shell scripts or run `docker compose` directly:
 ```bash
-# Start all services (PostgreSQL + FastAPI)
-docker-compose up -d
+# Start the API service in the background (runs migrations on startup)
+./up.sh
+
+# Or run using docker compose directly
+docker compose up -d
 
 # View logs
-docker-compose logs -f api
+docker compose logs -f api
 
 # Check service status
-docker-compose ps
+docker compose ps
 ```
 
 **5. Access the API**
@@ -218,70 +224,64 @@ Our Docker setup uses a **multi-stage build** for optimal production images:
 
 ### Docker Compose Services
 
-**PostgreSQL Service** (`db`)
-- Image: `postgres:16-alpine`
-- Port: `5432` (internal), `5432` (host)
-- Volume: `postgres_data` (persistent storage)
-- Health Check: Every 10 seconds
-- Network: `expenseflow-network`
-
 **FastAPI Service** (`api`)
 - Builds from: `./Dockerfile`
-- Port: `8003`
-- Depends On: PostgreSQL (waits for health check)
+- Port: `8001` (exposed dynamically or mapped via environment)
 - Health Check: Every 30 seconds
 - Auto-restart: Unless stopped
-- Volumes: Code hot-reload for development
+- Volumes: Bind mount to local codebase for development/hot-reloading
+- Command: Starts `uvicorn` and hot-reloads on source changes. (Note: Database migrations run automatically via `entrypoint.sh` when `uvicorn` starts)
 
 ### Environment Variables
 
 ```env
 # Database Configuration
-DB_CONNECTION=postgresql      # Always postgresql
-DB_HOST=db                     # Service name in Docker
-DB_PORT=5432                   # PostgreSQL port
-DB_USER=postgres               # Database user
-DB_PASSWORD=secure_password    # Strong password required
-DB_NAME=expenseflow            # Database name
+DB_CONNECTION=postgresql+psycopg2  # SQL database driver connection
+DB_HOST=host.docker.internal       # Use host.docker.internal to connect to host DB
+DB_PORT=5432                       # Database port
+DB_USER=postgres                   # Database user
+DB_PASSWORD=secure_password        # Database password
+DB_NAME=expenseflow-db             # Database name
 
 # JWT Authentication
-SECRET_KEY=your-secret-key     # Min 32 chars, use strong random value
-ALGORITHM=HS256                # JWT algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES=15 # Token lifetime
-REFRESH_TOKEN_EXPIRE_DAYS=7    # Refresh token lifetime
+SECRET_KEY=your-secret-key         # Min 32 chars, use strong random value
+ALGORITHM=HS256                    # JWT algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES=30     # Token lifetime
+REFRESH_TOKEN_EXPIRE_DAYS=7        # Refresh token lifetime
 
 # Server Configuration
-DEBUG=False                    # Never True in production
+DEBUG=False                        # Enable debugging mode (never in production)
 ```
 
 ### Docker Commands Reference
 
 ```bash
-# Start services in background
-docker-compose up -d
+# Start service in background (using helper script)
+./up.sh
 
-# Stop services (keeps data)
-docker-compose down
+# Stop service (using helper script)
+./down.sh
 
-# Remove services and volumes (clean slate)
-docker-compose down -v
+# Restart service (using helper script)
+./restart.sh
 
-# View logs
-docker-compose logs -f api        # API logs only
-docker-compose logs -f db         # Database logs
-docker-compose logs -f            # All logs
+# Start using docker compose
+docker compose up -d
+
+# Stop using docker compose
+docker compose down
+
+# View API logs
+docker compose logs -f api
 
 # Check service status
-docker-compose ps
+docker compose ps
 
-# Execute command in running container
-docker-compose exec api bash
+# Execute bash command inside the running API container
+docker compose exec api bash
 
-# Rebuild image
-docker-compose build --no-cache
-
-# Scale services
-docker-compose up -d --scale api=3
+# Rebuild image without cache
+docker compose build --no-cache
 ```
 
 ---
@@ -318,7 +318,8 @@ curl -X POST "http://localhost:8003/api/v1/auth/register" \
   -d '{
     "username": "john_doe",
     "email": "john@example.com",
-    "password": "SecurePassword123!"
+    "password": "SecurePassword123!",
+    "confirm_password": "SecurePassword123!"
   }'
 ```
 
@@ -340,22 +341,25 @@ Manage user profiles, permissions, and account settings.
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
 | `GET` | `/users` | List all users with filtering |
+| `POST` | `/users/add` | Invite a new user (Admin only, sends email invite) |
 | `GET` | `/users/me` | Get current user profile |
 | `GET` | `/users/{id}` | Get specific user details |
 | `PUT` | `/users/{id}` | Update user information |
 | `DELETE` | `/users/{id}` | Delete user account |
+| `POST` | `/users/reset-password-request` | Request password reset (sends temporary password) |
 
-**Query Parameters:**
+**Query Parameters (for GET /users):**
 ```
-search        - Search by name or email
+filter        - Search by username or email
+user_id       - Filter by specific user ID
+status        - all, active, inactive (default: all)
+limit         - Items per page (default: 10)
 page          - Page number (default: 1)
-page_size     - Items per page (default: 20)
-sort_by       - Sort field (name, created_at, email)
-order         - asc or desc (default: asc)
-status        - active, inactive
-role          - admin, user, viewer
-start_date    - YYYY-MM-DD
-end_date      - YYYY-MM-DD
+role          - all, admin, user, guest (default: all)
+sort_by       - Sort field (id, username, email, created_at) (default: id)
+order         - asc or desc (default: desc)
+start_date    - Start date filter (YYYY-MM-DD)
+end_date      - End date filter (YYYY-MM-DD)
 ```
 
 ---
@@ -409,8 +413,7 @@ curl -X POST "http://localhost:8003/api/v1/transactions" \
     "amount": 150.50,
     "category_id": 1,
     "description": "Weekly groceries",
-    "type": "expense",
-    "date": "2026-06-11"
+    "type": "expense"
   }'
 ```
 
@@ -421,24 +424,27 @@ Generate comprehensive financial insights and summaries.
 
 | Method | Endpoint | Purpose |
 |--------|----------|---------|
-| `GET` | `/reports/monthly` | Monthly expense summary |
 | `GET` | `/reports/yearly` | Yearly financial overview |
+| `GET` | `/reports/monthly` | Monthly expense summary |
 | `GET` | `/reports/daily` | Daily transaction summary |
-| `GET` | `/reports/category-summary` | Breakdown by category |
 
-**Example Response:**
+**Example Response (Yearly/Monthly/Daily list):**
 ```json
-{
-  "period": "2026-06",
-  "total_expense": 2450.50,
-  "total_income": 5000.00,
-  "net": 2549.50,
-  "by_category": {
-    "Groceries": 250.00,
-    "Utilities": 150.00,
-    "Entertainment": 200.50
+[
+  {
+    "year": 2026,
+    "month": 6,
+    "day": 0,
+    "total_income": 5000.0,
+    "total_expense": 2450.5,
+    "net_savings": 2549.5,
+    "user": {
+      "id": 1,
+      "username": "john_doe",
+      "email": "john@example.com"
+    }
   }
-}
+]
 ```
 
 ---
@@ -527,13 +533,7 @@ postgresql://user:password@host:port/database
 
 ### With Docker Compose
 
-Migrations run **automatically** on container startup:
-
-```yaml
-command: >
-  sh -c "alembic upgrade head &&
-         uvicorn app.main:app --host 0.0.0.0 --port 8003"
-```
+Migrations run **automatically** on container startup through `entrypoint.sh` when launching the FastAPI `uvicorn` server. There is no need to manually trigger them when starting with `docker compose` or scripts.
 
 ---
 
@@ -555,30 +555,41 @@ command: >
 ## 📋 Response Format
 
 ### Success Response
+Endpoints directly return the serialized Pydantic model representation. For example, a transaction creation request returns:
 ```json
 {
-  "status": "success",
-  "data": {
+  "id": 1,
+  "amount": 150.50,
+  "type": "expense",
+  "transaction_date": "2026-06-11",
+  "description": "Weekly groceries",
+  "category": {
     "id": 1,
-    "amount": 150.50,
-    "category": "Groceries",
-    "date": "2026-06-11",
-    "description": "Weekly shopping"
+    "name": "Groceries",
+    "user": {
+      "id": 1,
+      "username": "john_doe",
+      "email": "john@example.com"
+    },
+    "created_at": "2026-06-11T12:00:00",
+    "updated_at": "2026-06-11T12:00:00"
   },
-  "message": "Transaction created successfully"
+  "user": {
+    "id": 1,
+    "username": "john_doe",
+    "email": "john@example.com"
+  },
+  "created_at": "2026-06-11T12:00:00",
+  "updated_at": "2026-06-11T12:00:00"
 }
 ```
 
 ### Error Response
+API errors managed by custom application exceptions return a structured error format:
 ```json
 {
-  "status": "error",
-  "code": "INVALID_REQUEST",
-  "message": "Amount must be greater than 0",
-  "details": {
-    "field": "amount",
-    "error": "validation_error"
-  }
+  "success": false,
+  "message": "Error details/message explaining the failure"
 }
 ```
 
@@ -624,30 +635,30 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ```env
 # ============= Database Configuration =============
-DB_CONNECTION=postgresql    # Connection type
-DB_HOST=db                  # Host (or localhost for local)
-DB_PORT=5432               # PostgreSQL port
-DB_USER=postgres           # Database user
-DB_PASSWORD=password       # Strong password
-DB_NAME=expenseflow        # Database name
+DB_CONNECTION=postgresql+psycopg2  # Database connection driver
+DB_HOST=host.docker.internal       # Database host
+DB_PORT=5432                       # PostgreSQL port
+DB_USER=postgres                   # Database user
+DB_PASSWORD=password               # Database password
+DB_NAME=expenseflow-db             # Database name
 
 # ============= JWT Configuration =============
-SECRET_KEY=your-secret-key-min-32-chars  # Generate strong key
-ALGORITHM=HS256                          # JWT algorithm
-ACCESS_TOKEN_EXPIRE_MINUTES=15           # Access token lifetime
+SECRET_KEY=your-secret-key-min-32-chars  # Secret key for signing tokens
+ALGORITHM=HS256                          # Token algorithm
+ACCESS_TOKEN_EXPIRE_MINUTES=30           # Access token lifetime
 REFRESH_TOKEN_EXPIRE_DAYS=7              # Refresh token lifetime
 
 # ============= Server Configuration =============
-DEBUG=False                # Never True in production
-API_TITLE=ExpenseFlow API  # API title
-API_VERSION=1.0.0          # API version
+DEBUG=False                # Debug mode
+PORT=8001                  # Application port
+APP_DOMAIN=http://localhost:8003  # App domain URL for emails
 
 # ============= Optional: SMTP/Email Configuration =============
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SENDER=noreply@expenseflow.com
-SMTP_USERNAME=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
+SMTP_HOST=172.19.0.4       # SMTP server host
+SMTP_PORT=1025             # SMTP server port
+SMTP_SENDER=noreply@expenseflow.local
+SMTP_USERNAME=             # SMTP username (optional)
+SMTP_PASSWORD=             # SMTP password (optional)
 ```
 
 ---
